@@ -32,6 +32,7 @@ export class TideJob {
         const forecast = Helper.forecast(await this.api.forecast());
         const last = await this.forecastDao.last();
         if (!last || JSON.stringify(last.values) !== JSON.stringify(forecast)) {
+            console.log('Inserting forecast');
             await this.forecastDao.insert(forecast);
         }
     }
