@@ -16,8 +16,10 @@ export class Helper {
 
     public static forecast(data: string): Forecast[] {
         const tableData = this.parseHtmlTable(data);
-        const idx = tableData.findIndex(row => row[0].trim() === 'SAN FERNANDO');
-        return tableData.slice(idx).map(row => ({
+        const names = tableData.map(row => row[0].trim());
+        const idx = names.indexOf('SAN FERNANDO');
+        const toIdx = names.lastIndexOf('', idx + 1);
+        return tableData.slice(idx, toIdx + 1).map(row => ({
             date: moment.tz(`${row[4]} ${row[2]}`, 'DD/MM/YYYY HH:mm', 'America/Argentina/Buenos_Aires').toDate(),
             mode: row[1] === 'BAJAMAR' ? ForecastType.LOW : ForecastType.HIGH,
             value: parseFloat(row[3])
