@@ -1,4 +1,5 @@
-import moment from "moment";
+// import moment from "moment";
+import moment from 'moment-timezone';
 import { ReadingData, ReadingValue } from "../api/api";
 import { Forecast, ForecastType, Tide, TideType } from "../dao/dao";
 import { JSDOM } from 'jsdom';
@@ -17,7 +18,7 @@ export class Helper {
         const tableData = this.parseHtmlTable(data);
         const idx = tableData.findIndex(row => row[0].trim() === 'SAN FERNANDO');
         return tableData.slice(idx).map(row => ({
-            date: moment(`${row[4]} ${row[2]}`, 'DD/MM/YYYY HH:mm').toDate(),
+            date: moment.tz(`${row[4]} ${row[2]}`, 'DD/MM/YYYY HH:mm', 'America/Argentina/Buenos_Aires').toDate(),
             mode: row[1] === 'BAJAMAR' ? ForecastType.LOW : ForecastType.HIGH,
             value: parseFloat(row[3])
         }));
