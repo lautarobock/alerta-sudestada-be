@@ -18,7 +18,8 @@ export class Helper {
         const tableData = this.parseHtmlTable(data);
         const names = tableData.map(row => row[0].trim());
         const idx = names.indexOf('SAN FERNANDO');
-        const toIdx = names.lastIndexOf('', idx + 1);
+        let toIdx = names.slice(idx + 1).findIndex(n => n !== '');
+        toIdx = toIdx === -1 ? names.length - 1 : idx + toIdx;
         return tableData.slice(idx, toIdx + 1).map(row => ({
             date: moment.tz(`${row[4]} ${row[2]}`, 'DD/MM/YYYY HH:mm', 'America/Argentina/Buenos_Aires').toDate(),
             mode: row[1] === 'BAJAMAR' ? ForecastType.LOW : ForecastType.HIGH,

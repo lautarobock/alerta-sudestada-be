@@ -17,7 +17,7 @@
             "type": "node",
             "request": "launch",
             "name": "Run Test",
-            "program": "${workspaceFolder}\\build\\index.js",
+            "program": "${workspaceFolder}\\build\\test.js",
             "preLaunchTask": "npm: build",
             "env": {
                 "MONGO_URL": "mongodb+srv://admin:admin1234@cluster0-zkeoz.mongodb.net/test?retryWrites=true&w=majority"
