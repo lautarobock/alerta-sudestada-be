@@ -28,7 +28,7 @@ export class Helper {
 
     private static convertField(data: ReadingData, readFrom: string, type: TideType): Tide[] {
         return ((data  as any)[readFrom] as ReadingValue[]).filter(v => v.altura !== null).map(value => ({
-            moment: new Date(value.fecha),
+            moment: moment.tz(value.fecha, 'YYYY-MM-DDTHH:mm:ss', 'America/Argentina/Buenos_Aires').toDate(),
             type,
             value: value.altura
         }));
