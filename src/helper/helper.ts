@@ -20,7 +20,7 @@ export class Helper {
         const idx = names.indexOf('SAN FERNANDO');
         let toIdx = names.slice(idx + 1).findIndex(n => n !== '');
         toIdx = toIdx === -1 ? names.length - 1 : idx + toIdx;
-        return tableData.slice(idx, toIdx + 1).map(row => ({
+        return tableData.slice(idx, toIdx + 1).filter(row => row[2] !== '---').map(row => ({
             date: moment.tz(`${row[4]} ${row[2]}`, 'DD/MM/YYYY HH:mm', 'America/Argentina/Buenos_Aires').toDate(),
             mode: row[1] === 'BAJAMAR' ? ForecastType.LOW : ForecastType.HIGH,
             value: parseFloat(row[3])

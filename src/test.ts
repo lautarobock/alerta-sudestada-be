@@ -8,10 +8,11 @@ async function run() {
         await init();
 
         const forecast = Helper.forecast(await new API().forecast());
-        const last = await new ForecastDao().last();
-        if (!last || JSON.stringify(last.values) !== JSON.stringify(forecast)) {
-            console.log('Inserting forecast');
-        }
+        // const last = await new ForecastDao().last();
+        // if (!last || JSON.stringify(last.values) !== JSON.stringify(forecast)) {
+        //     console.log('Inserting forecast');
+        // }
+        console.log(JSON.stringify(forecast, null, 2))
 
     } finally {
         await close();
