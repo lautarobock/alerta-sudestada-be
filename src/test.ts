@@ -14,6 +14,8 @@ async function run() {
         // }
         console.log(JSON.stringify(forecast, null, 2))
 
+    } catch (e) {
+        console.log(e);
     } finally {
         await close();
     }
