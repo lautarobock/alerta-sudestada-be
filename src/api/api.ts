@@ -15,11 +15,11 @@ export class API {
     constructor() {}
 
     current() {
-        return Axios.get<ReadingData>(`https://www.hidro.gov.ar/shnapi/v1/AlturasHorarias/ValoresGrafico/SFER/${this.now()}`).then(res => res.data);
+        return Axios.get<ReadingData>(`http://www.hidro.gov.ar/shnapi/v1/AlturasHorarias/ValoresGrafico/SFER/${this.now()}`).then(res => res.data);
     }
 
     forecast() {
-        return Axios.get('https://www.hidro.gov.ar/oceanografia/pronostico.asp').then(res => res.data as string);
+        return Axios.get('http://www.hidro.gov.ar/oceanografia/pronostico.asp').then(res => res.data as string);
     }
 
     private now() {
