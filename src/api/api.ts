@@ -15,7 +15,7 @@ export class API {
     constructor() {}
 
     current() {
-        return Axios.get<ReadingData>(`http://www.hidro.gov.ar/shnapi/v1/AlturasHorarias/ValoresGrafico/SFER/${this.now()}`).then(res => res.data);
+        return Axios.get<ReadingData>(`http://www.hidro.gov.ar/api/v1/AlturasHorarias/SFER/${this.now()}`).then(res => res.data);
     }
 
     forecast() {
