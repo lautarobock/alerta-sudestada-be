@@ -1,3 +1,4 @@
+import axios from "axios";
 import { API } from "../api/api";
 import { ForecastDao, Tide, TideDao } from "../dao/dao";
 import { Helper } from "../helper/helper";
@@ -25,7 +26,31 @@ export class TideJob {
         } catch (e) {
             console.error(e);
         }
-        
+        await this.notifyPushCheck();
+    }
+
+    private async notifyPushCheck() {
+        const url = process.env.ALERTA_PUSH_CHECK_URL;
+        const secret = process.env.PUSH_WEBHOOK_SECRET;
+        if (!url || !secret) {
+            console.warn(
+                "Push check skipped: set ALERTA_PUSH_CHECK_URL and PUSH_WEBHOOK_SECRET"
+            );
+            return;
+        }
+        try {
+            const res = await axios.post(
+                url,
+                {},
+                {
+                    headers: { Authorization: `Bearer ${secret}` },
+                    timeout: 60_000,
+                }
+            );
+            console.log("Push check OK:", res.data);
+        } catch (e) {
+            console.error("Push check failed:", e);
+        }
     }
 
     private async runForecast() {
