@@ -1,18 +1,32 @@
 import axios from "axios";
 import { API } from "../api/api";
-import { ForecastDao, Tide, TideDao } from "../dao/dao";
+import { WeatherAPI } from "../api/weather.api";
+import {
+    ForecastDao,
+    SettingsDao,
+    Tide,
+    TideDao,
+    WindForecastDao,
+} from "../dao/dao";
 import { Helper } from "../helper/helper";
+import { filterSudestadaSlots } from "../helper/wind.helper";
 
 export class TideJob {
 
     private tideDao: TideDao;
     private forecastDao: ForecastDao;
+    private windForecastDao: WindForecastDao;
+    private settingsDao: SettingsDao;
     private api: API;
+    private weatherApi: WeatherAPI;
 
     constructor() {
         this.tideDao = new TideDao();
         this.forecastDao = new ForecastDao();
+        this.windForecastDao = new WindForecastDao();
+        this.settingsDao = new SettingsDao();
         this.api = new API();
+        this.weatherApi = new WeatherAPI();
     }
 
     async run() {
@@ -23,6 +37,11 @@ export class TideJob {
         }
         try {
             await this.runForecast();
+        } catch (e) {
+            console.error(e);
+        }
+        try {
+            await this.runWindForecast();
         } catch (e) {
             console.error(e);
         }
@@ -60,6 +79,39 @@ export class TideJob {
             console.log('Inserting forecast');
             await this.forecastDao.insert(forecast);
         }
+    }
+
+    private async runWindForecast() {
+        const settings = await this.settingsDao.getOrSeed();
+        await this.windForecastDao.ensureIndexes();
+
+        const data = await this.weatherApi.forecast();
+        const positive = filterSudestadaSlots(data.list, settings.wind);
+        if (positive.length === 0) {
+            console.log('No new sudestada wind slots from forecast');
+            return;
+        }
+
+        const existing = await this.windForecastDao.findExistingDtTimes(
+            positive.map((s) => s.dt)
+        );
+        const toInsert = positive.filter((s) => !existing.has(s.dt.getTime()));
+        if (toInsert.length === 0) {
+            console.log('All sudestada wind slots already stored');
+            return;
+        }
+
+        const now = new Date();
+        const inserted = await this.windForecastDao.insertMany(
+            toInsert.map((s) => ({
+                dt: s.dt,
+                speed: s.speed,
+                deg: s.deg,
+                gust: s.gust,
+                insertedAt: now,
+            }))
+        );
+        console.log(`Inserted ${inserted} sudestada wind forecast slot(s)`);
     }
 
     private async runTides() {

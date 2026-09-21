@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "../alerta-sudestada"
+		},
+		{
+			"path": "."
+		}
+	],
+    "settings": {
+        "workbench.colorCustomizations": {
+            "titleBar.activeBackground": "#8B5FD4",
+            "titleBar.activeForeground": "#ffffff",
+            "titleBar.inactiveBackground": "#8B5FD499",
+            "titleBar.inactiveForeground": "#ffffff99"
+        }
+    }
+}

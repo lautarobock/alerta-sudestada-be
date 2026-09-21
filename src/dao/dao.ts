@@ -1,4 +1,9 @@
 import { Db, MongoClient, ServerApiVersion } from 'mongodb';
+import {
+    AppSettings,
+    SETTINGS_ID,
+    defaultSettingsDoc,
+} from '../settings/defaults';
 
 let client: MongoClient | undefined;
 
@@ -107,4 +112,88 @@ export class ForecastDao {
             return this.db.collection('forecast');
         }
 
+}
+
+export interface WindForecastDocument {
+    dt: Date;
+    speed: number;
+    deg: number;
+    gust?: number;
+    insertedAt: Date;
+    notifiedAt: Date | null;
+}
+
+export class SettingsDao {
+    private db: Db;
+
+    constructor() {
+        this.db = getClient().db('alerta-sudestada');
+    }
+
+    async getOrSeed(): Promise<AppSettings> {
+        const existing = await this.collection.findOne({ _id: SETTINGS_ID });
+        if (existing) {
+            return existing;
+        }
+        const doc = defaultSettingsDoc();
+        try {
+            await this.collection.insertOne(doc);
+            return doc;
+        } catch {
+            const again = await this.collection.findOne({ _id: SETTINGS_ID });
+            if (again) return again;
+            throw new Error('Failed to seed settings');
+        }
+    }
+
+    private get collection() {
+        return this.db.collection<AppSettings>('settings');
+    }
+}
+
+export class WindForecastDao {
+    private db: Db;
+
+    constructor() {
+        this.db = getClient().db('alerta-sudestada');
+    }
+
+    async ensureIndexes() {
+        await this.collection.createIndex({ dt: 1 }, { unique: true });
+    }
+
+    async findExistingDtTimes(dts: Date[]): Promise<Set<number>> {
+        if (dts.length === 0) return new Set();
+        const docs = await this.collection
+            .find({ dt: { $in: dts } })
+            .project({ dt: 1 })
+            .toArray();
+        return new Set(docs.map((d) => new Date(d.dt).getTime()));
+    }
+
+    async insertMany(slots: Omit<WindForecastDocument, 'notifiedAt'>[]) {
+        if (slots.length === 0) return 0;
+        const docs: WindForecastDocument[] = slots.map((s) => ({
+            ...s,
+            notifiedAt: null,
+        }));
+        try {
+            const result = await this.collection.insertMany(docs, { ordered: false });
+            return result.insertedCount;
+        } catch (e: unknown) {
+            const code =
+                e &&
+                typeof e === 'object' &&
+                'code' in e &&
+                (e as { code: number }).code;
+            if (code === 11000) {
+                return 0;
+            }
+            throw e;
+        }
+    }
+
+    private get collection() {
+        return this.db.collection<WindForecastDocument>('windForecast');
+    }
 }
