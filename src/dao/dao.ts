@@ -3,6 +3,9 @@ import {
     AppSettings,
     SETTINGS_ID,
     defaultSettingsDoc,
+    isLegacyWindSettings,
+    normalizeWindSettings,
+    type WindSettings,
 } from '../settings/defaults';
 
 let client: MongoClient | undefined;
@@ -130,20 +133,33 @@ export class SettingsDao {
         this.db = getClient().db('alerta-sudestada');
     }
 
-    async getOrSeed(): Promise<AppSettings> {
+    async getOrSeed(): Promise<AppSettings & { wind: WindSettings }> {
         const existing = await this.collection.findOne({ _id: SETTINGS_ID });
         if (existing) {
-            return existing;
+            return this.normalizeAndPersistWind(existing);
         }
         const doc = defaultSettingsDoc();
         try {
             await this.collection.insertOne(doc);
-            return doc;
+            return { ...doc, wind: normalizeWindSettings(doc.wind) };
         } catch {
             const again = await this.collection.findOne({ _id: SETTINGS_ID });
-            if (again) return again;
+            if (again) return this.normalizeAndPersistWind(again);
             throw new Error('Failed to seed settings');
         }
+    }
+
+    private async normalizeAndPersistWind(
+        doc: AppSettings
+    ): Promise<AppSettings & { wind: WindSettings }> {
+        const wind = normalizeWindSettings(doc.wind);
+        if (isLegacyWindSettings(doc.wind)) {
+            await this.collection.updateOne(
+                { _id: SETTINGS_ID },
+                { $set: { wind, updatedAt: new Date() } }
+            );
+        }
+        return { ...doc, wind };
     }
 
     private get collection() {

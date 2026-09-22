@@ -1,5 +1,4 @@
 import type { OwmForecastItem } from '../api/weather.api';
-import type { WindSettings } from '../settings/defaults';
 
 export interface WindForecastSlot {
     dt: Date;
@@ -8,9 +7,8 @@ export interface WindForecastSlot {
     gust?: number;
 }
 
-export function filterSudestadaSlots(
-    list: OwmForecastItem[],
-    wind: WindSettings
+export function parseFutureForecastSlots(
+    list: OwmForecastItem[]
 ): WindForecastSlot[] {
     const now = Date.now();
     const slots: WindForecastSlot[] = [];
@@ -21,8 +19,6 @@ export function filterSudestadaSlots(
 
         const { speed, deg, gust } = item.wind;
         if (typeof deg !== 'number' || typeof speed !== 'number') continue;
-        if (deg < wind.degMin || deg > wind.degMax) continue;
-        if (speed * 3.6 < wind.minKmh) continue;
 
         slots.push({
             dt,

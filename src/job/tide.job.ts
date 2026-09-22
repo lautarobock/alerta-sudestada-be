@@ -9,7 +9,7 @@ import {
     WindForecastDao,
 } from "../dao/dao";
 import { Helper } from "../helper/helper";
-import { filterSudestadaSlots } from "../helper/wind.helper";
+import { parseFutureForecastSlots } from "../helper/wind.helper";
 
 export class TideJob {
 
@@ -82,22 +82,22 @@ export class TideJob {
     }
 
     private async runWindForecast() {
-        const settings = await this.settingsDao.getOrSeed();
+        await this.settingsDao.getOrSeed();
         await this.windForecastDao.ensureIndexes();
 
         const data = await this.weatherApi.forecast();
-        const positive = filterSudestadaSlots(data.list, settings.wind);
-        if (positive.length === 0) {
-            console.log('No new sudestada wind slots from forecast');
+        const future = parseFutureForecastSlots(data.list);
+        if (future.length === 0) {
+            console.log('No future wind forecast slots from OpenWeather');
             return;
         }
 
         const existing = await this.windForecastDao.findExistingDtTimes(
-            positive.map((s) => s.dt)
+            future.map((s) => s.dt)
         );
-        const toInsert = positive.filter((s) => !existing.has(s.dt.getTime()));
+        const toInsert = future.filter((s) => !existing.has(s.dt.getTime()));
         if (toInsert.length === 0) {
-            console.log('All sudestada wind slots already stored');
+            console.log('All wind forecast slots already stored');
             return;
         }
 
@@ -111,7 +111,7 @@ export class TideJob {
                 insertedAt: now,
             }))
         );
-        console.log(`Inserted ${inserted} sudestada wind forecast slot(s)`);
+        console.log(`Inserted ${inserted} wind forecast slot(s)`);
     }
 
     private async runTides() {
