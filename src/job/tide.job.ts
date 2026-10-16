@@ -96,7 +96,8 @@ export class TideJob {
             console.log("Push check OK:", res.data);
             return true;
         } catch (e) {
-            console.error("Push check failed:", e);
+            const message = e instanceof Error ? e.message : String(e);
+            console.error("Push check failed:", message);
             return false;
         }
     }
