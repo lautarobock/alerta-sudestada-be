@@ -11,6 +11,8 @@ import {
 import { Helper } from "../helper/helper";
 import { parseFutureForecastSlots } from "../helper/wind.helper";
 
+const PUSH_CHECK_HEARTBEAT_MS = 6 * 60 * 60 * 1000;
+
 export class TideJob {
 
     private tideDao: TideDao;
@@ -35,27 +37,52 @@ export class TideJob {
         } catch (e) {
             console.error(e);
         }
+        let forecastChanged = false;
         try {
-            await this.runForecast();
+            forecastChanged = await this.runForecast();
         } catch (e) {
             console.error(e);
         }
+        let windChanged = false;
         try {
-            await this.runWindForecast();
+            windChanged = await this.runWindForecast();
         } catch (e) {
             console.error(e);
         }
-        await this.notifyPushCheck();
+
+        const heartbeatDue = await this.isPushHeartbeatDue();
+        if (!forecastChanged && !windChanged && !heartbeatDue) {
+            console.log('Push check skipped: no forecast or wind changes');
+            return;
+        }
+
+        const reasons = [
+            forecastChanged ? 'forecast changed' : null,
+            windChanged ? 'new wind slots' : null,
+            heartbeatDue ? '6h heartbeat' : null,
+        ].filter(Boolean);
+        console.log(`Push check: ${reasons.join(', ')}`);
+
+        const ok = await this.notifyPushCheck();
+        if (ok) {
+            await this.settingsDao.markPushCheck(new Date());
+        }
     }
 
-    private async notifyPushCheck() {
+    private async isPushHeartbeatDue(): Promise<boolean> {
+        const last = await this.settingsDao.getLastPushCheckAt();
+        if (!last) return true;
+        return Date.now() - last.getTime() >= PUSH_CHECK_HEARTBEAT_MS;
+    }
+
+    private async notifyPushCheck(): Promise<boolean> {
         const url = process.env.ALERTA_PUSH_CHECK_URL;
         const secret = process.env.PUSH_WEBHOOK_SECRET;
         if (!url || !secret) {
             console.warn(
                 "Push check skipped: set ALERTA_PUSH_CHECK_URL and PUSH_WEBHOOK_SECRET"
             );
-            return;
+            return false;
         }
         try {
             const res = await axios.post(
@@ -67,21 +94,25 @@ export class TideJob {
                 }
             );
             console.log("Push check OK:", res.data);
+            return true;
         } catch (e) {
             console.error("Push check failed:", e);
+            return false;
         }
     }
 
-    private async runForecast() {
+    private async runForecast(): Promise<boolean> {
         const forecast = Helper.forecast(await this.api.forecast());
         const last = await this.forecastDao.last();
         if (!last || JSON.stringify(last.values) !== JSON.stringify(forecast)) {
             console.log('Inserting forecast');
             await this.forecastDao.insert(forecast);
+            return true;
         }
+        return false;
     }
 
-    private async runWindForecast() {
+    private async runWindForecast(): Promise<boolean> {
         await this.settingsDao.getOrSeed();
         await this.windForecastDao.ensureIndexes();
 
@@ -89,7 +120,7 @@ export class TideJob {
         const future = parseFutureForecastSlots(data.list);
         if (future.length === 0) {
             console.log('No future wind forecast slots from OpenWeather');
-            return;
+            return false;
         }
 
         const existing = await this.windForecastDao.findExistingDtTimes(
@@ -98,7 +129,7 @@ export class TideJob {
         const toInsert = future.filter((s) => !existing.has(s.dt.getTime()));
         if (toInsert.length === 0) {
             console.log('All wind forecast slots already stored');
-            return;
+            return false;
         }
 
         const now = new Date();
@@ -112,6 +143,7 @@ export class TideJob {
             }))
         );
         console.log(`Inserted ${inserted} wind forecast slot(s)`);
+        return inserted > 0;
     }
 
     private async runTides() {

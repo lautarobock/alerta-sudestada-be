@@ -26,6 +26,8 @@ export interface AppSettings {
     river: RiverThresholds;
     wind: WindSettings | LegacyWindSettings;
     updatedAt: Date;
+    /** Last successful call to the Vercel push-check webhook. */
+    lastPushCheckAt?: Date;
 }
 
 export const SETTINGS_ID = 'global' as const;

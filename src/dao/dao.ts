@@ -149,6 +149,25 @@ export class SettingsDao {
         }
     }
 
+    async getLastPushCheckAt(): Promise<Date | null> {
+        const doc = await this.collection.findOne(
+            { _id: SETTINGS_ID },
+            { projection: { lastPushCheckAt: 1 } }
+        );
+        const value = doc?.lastPushCheckAt;
+        if (!value) return null;
+        const at = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(at.getTime()) ? null : at;
+    }
+
+    async markPushCheck(at: Date): Promise<void> {
+        await this.getOrSeed();
+        await this.collection.updateOne(
+            { _id: SETTINGS_ID },
+            { $set: { lastPushCheckAt: at } }
+        );
+    }
+
     private async normalizeAndPersistWind(
         doc: AppSettings
     ): Promise<AppSettings & { wind: WindSettings }> {
