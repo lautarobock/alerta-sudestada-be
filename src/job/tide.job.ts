@@ -9,9 +9,25 @@ import {
     WindForecastDao,
 } from "../dao/dao";
 import { Helper } from "../helper/helper";
-import { parseFutureForecastSlots } from "../helper/wind.helper";
+import { parseFutureForecastSlots, type WindForecastSlot } from "../helper/wind.helper";
 
 const PUSH_CHECK_HEARTBEAT_MS = 6 * 60 * 60 * 1000;
+
+function sameGust(a: number | undefined, b: number | undefined): boolean {
+    if (typeof a !== "number" && typeof b !== "number") return true;
+    return a === b;
+}
+
+function windSlotChanged(
+    stored: { speed: number; deg: number; gust?: number },
+    next: WindForecastSlot
+): boolean {
+    return (
+        stored.speed !== next.speed ||
+        stored.deg !== next.deg ||
+        !sameGust(stored.gust, next.gust)
+    );
+}
 
 export class TideJob {
 
@@ -124,11 +140,19 @@ export class TideJob {
             return false;
         }
 
-        const existing = await this.windForecastDao.findExistingDtTimes(
-            future.map((s) => s.dt)
-        );
-        const toInsert = future.filter((s) => !existing.has(s.dt.getTime()));
-        if (toInsert.length === 0) {
+        const existing = await this.windForecastDao.findByDt(future.map((s) => s.dt));
+        const toInsert: WindForecastSlot[] = [];
+        const toUpdate: WindForecastSlot[] = [];
+        for (const slot of future) {
+            const stored = existing.get(slot.dt.getTime());
+            if (!stored) {
+                toInsert.push(slot);
+            } else if (windSlotChanged(stored, slot)) {
+                toUpdate.push(slot);
+            }
+        }
+
+        if (toInsert.length === 0 && toUpdate.length === 0) {
             console.log('All wind forecast slots already stored');
             return false;
         }
@@ -143,8 +167,14 @@ export class TideJob {
                 insertedAt: now,
             }))
         );
-        console.log(`Inserted ${inserted} wind forecast slot(s)`);
-        return inserted > 0;
+        const updated = await this.windForecastDao.updateForecastFields(toUpdate);
+        if (inserted > 0) {
+            console.log(`Inserted ${inserted} wind forecast slot(s)`);
+        }
+        if (updated > 0) {
+            console.log(`Updated ${updated} wind forecast slot(s)`);
+        }
+        return inserted > 0 || updated > 0;
     }
 
     private async runTides() {

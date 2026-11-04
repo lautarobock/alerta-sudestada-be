@@ -1,4 +1,4 @@
-import { Db, MongoClient, ServerApiVersion } from 'mongodb';
+import { Db, MongoBulkWriteError, MongoClient, ServerApiVersion } from 'mongodb';
 import {
     AppSettings,
     SETTINGS_ID,
@@ -197,13 +197,12 @@ export class WindForecastDao {
         await this.collection.createIndex({ dt: 1 }, { unique: true });
     }
 
-    async findExistingDtTimes(dts: Date[]): Promise<Set<number>> {
-        if (dts.length === 0) return new Set();
+    async findByDt(dts: Date[]): Promise<Map<number, WindForecastDocument>> {
+        if (dts.length === 0) return new Map();
         const docs = await this.collection
             .find({ dt: { $in: dts } })
-            .project({ dt: 1 })
             .toArray();
-        return new Set(docs.map((d) => new Date(d.dt).getTime()));
+        return new Map(docs.map((d) => [new Date(d.dt).getTime(), d]));
     }
 
     async insertMany(slots: Omit<WindForecastDocument, 'notifiedAt'>[]) {
@@ -216,16 +215,38 @@ export class WindForecastDao {
             const result = await this.collection.insertMany(docs, { ordered: false });
             return result.insertedCount;
         } catch (e: unknown) {
-            const code =
-                e &&
-                typeof e === 'object' &&
-                'code' in e &&
-                (e as { code: number }).code;
-            if (code === 11000) {
-                return 0;
+            if (e instanceof MongoBulkWriteError && e.code === 11000) {
+                return e.insertedCount ?? 0;
             }
             throw e;
         }
+    }
+
+    /** Refresh speed, direction and gust. Leaves notifiedAt untouched. */
+    async updateForecastFields(
+        slots: Pick<WindForecastDocument, 'dt' | 'speed' | 'deg' | 'gust'>[]
+    ): Promise<number> {
+        if (slots.length === 0) return 0;
+        const result = await this.collection.bulkWrite(
+            slots.map((s) => {
+                const set: { speed: number; deg: number; gust?: number } = {
+                    speed: s.speed,
+                    deg: s.deg,
+                };
+                const unsetGust = typeof s.gust !== 'number';
+                if (!unsetGust) set.gust = s.gust;
+                return {
+                    updateOne: {
+                        filter: { dt: s.dt },
+                        update: unsetGust
+                            ? { $set: set, $unset: { gust: '' } }
+                            : { $set: set },
+                    },
+                };
+            }),
+            { ordered: false }
+        );
+        return result.modifiedCount;
     }
 
     private get collection() {
