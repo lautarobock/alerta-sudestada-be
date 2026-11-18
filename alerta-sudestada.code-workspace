@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "."
+		},
+		{
+			"path": "../alerta-sudestada-ciq"
 		}
 	],
     "settings": {
